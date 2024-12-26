@@ -15,11 +15,12 @@ def init_auth_db():
                 role TEXT DEFAULT 'member'
             )
         """)
+        # Check if admin user exists
         cursor.execute("SELECT * FROM users WHERE email=?", ("admin@ic.ac.uk",))
         if not cursor.fetchone():
             hashed_password = bcrypt.hashpw("admin123".encode('utf-8'), bcrypt.gensalt())
             cursor.execute("INSERT INTO users (email, password, role) VALUES (?, ?, ?)",
-                           ("admin@ic.ac.uk", hashed_password, "admin"))
+                           ("admin@ic.ac.uk", hashed_password.decode('utf-8'), "admin"))
 
 def register_user(email, password, role="member"):
     """Register a new user."""
@@ -41,9 +42,14 @@ def authenticate_user(email, password):
         result = cursor.fetchone()
         if result:
             stored_password = result[0]
+            # Ensure stored password is hashed
             if isinstance(stored_password, str):
                 stored_password = stored_password.encode('utf-8')
-            return bcrypt.checkpw(password.encode('utf-8'), stored_password)
+            try:
+                if bcrypt.checkpw(password.encode('utf-8'), stored_password):
+                    return True
+            except ValueError:
+                raise ValueError("Stored password is not properly hashed.")
     return False
 
 def get_user_role(email):
