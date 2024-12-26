@@ -16,38 +16,28 @@ if "logged_in" not in st.session_state:
     st.session_state["logged_in"] = False
 
 if not st.session_state["logged_in"]:
-    st.sidebar.title("Login or Register")
-    menu = st.sidebar.radio("Select Action", ["Login", "Register"])
+    # Login Callback
+    def login_callback(email, password):
+        if authenticate_user(email, password):
+            st.session_state["logged_in"] = True
+            st.session_state["email"] = email
+            st.session_state["role"] = get_user_role(email)
+            st.sidebar.success(f"Welcome, {email}!")
+        else:
+            st.sidebar.error("Invalid email or password.")
 
-    if menu == "Login":
-        st.sidebar.subheader("Login")
-        email = st.sidebar.text_input("Email")
-        password = st.sidebar.text_input("Password", type="password")
-        if st.sidebar.button("Login"):
-            if authenticate_user(email, password):
-                st.session_state["email"] = email
-                st.session_state["role"] = get_user_role(email)
-                st.session_state["logged_in"] = True
-                st.sidebar.success(f"Welcome, {email}!")
-            else:
-                st.sidebar.error("Invalid email or password.")
+    # Sidebar Login
+    st.sidebar.title("Login")
+    email = st.sidebar.text_input("Email")
+    password = st.sidebar.text_input("Password", type="password")
+    st.sidebar.button("Login", on_click=lambda: login_callback(email, password))
 
-    elif menu == "Register":
-        st.sidebar.subheader("Register")
-        email = st.sidebar.text_input("Institution Email")
-        password = st.sidebar.text_input("Password", type="password")
-        if st.sidebar.button("Register"):
-            success, message = register_user(email, password)
-            if success:
-                st.sidebar.success(message)
-            else:
-                st.sidebar.error(message)
 else:
-    # Main app content after login
+    # Main App Content After Login
     st.sidebar.title("Navigation")
     tabs = st.sidebar.radio("Go To", ["Dashboard", "Projects", "GitHub Issues", "Reminders", "Team"])
 
-    # Admin options for password change
+    # Admin Options for Password Change
     if st.session_state["email"] == "admin@ic.ac.uk":
         st.sidebar.title("Admin Options")
         new_password = st.sidebar.text_input("New Password", type="password")
@@ -150,4 +140,3 @@ else:
         if st.button("Add Member"):
             add_team_member(name, email)
             st.success(f"Added team member: {name}")
-
