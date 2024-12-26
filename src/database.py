@@ -1,10 +1,12 @@
 import sqlite3
 from contextlib import contextmanager
+import bcrypt  # Import bcrypt for password hashing
 
 DB_FILE = "project_manager.db"
 
 @contextmanager
 def get_db_connection():
+    """Context manager for database connections."""
     conn = sqlite3.connect(DB_FILE)
     try:
         yield conn
@@ -13,8 +15,10 @@ def get_db_connection():
         conn.close()
 
 def init_db():
+    """Initialize the database with required tables."""
     with get_db_connection() as conn:
         cursor = conn.cursor()
+        # Projects table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS projects (
                 id INTEGER PRIMARY KEY,
@@ -25,6 +29,15 @@ def init_db():
                 status TEXT DEFAULT 'Pending'
             )
         """)
+        # Add any missing columns
+        cursor.execute("PRAGMA table_info(projects)")
+        existing_columns = [col[1] for col in cursor.fetchall()]
+        if "progress" not in existing_columns:
+            cursor.execute("ALTER TABLE projects ADD COLUMN progress INTEGER DEFAULT 0")
+        if "status" not in existing_columns:
+            cursor.execute("ALTER TABLE projects ADD COLUMN status TEXT DEFAULT 'Pending'")
+
+        # Team members table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS team (
                 id INTEGER PRIMARY KEY,
@@ -34,14 +47,20 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY,
-                email TEXT UNIQUE NOT NULL,
-                password TEXT NOT NULL,
-                role TEXT DEFAULT 'member'
-            )
-        """)
+
+def rehash_passwords():
+    """Rehash all passwords in the database."""
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, password FROM users")
+        users = cursor.fetchall()
+        for user in users:
+            user_id, password = user
+            try:
+                bcrypt.checkpw("test".encode('utf-8'), password.encode('utf-8'))
+            except ValueError:
+                hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
+                cursor.execute("UPDATE users SET password=? WHERE id=?", (hashed_password.decode('utf-8'), user_id))
 
 def get_projects():
     with get_db_connection() as conn:
